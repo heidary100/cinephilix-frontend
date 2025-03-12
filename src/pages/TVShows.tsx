@@ -1,129 +1,189 @@
-import React, { useState } from 'react';
-import { Typography, Row, Col, Card, Select, Space, Pagination } from 'antd';
-import { FilterOutlined } from '@ant-design/icons';
-import MediaCard from '../components/MediaCard';
+import React, { useState, useEffect } from 'react';
+import { Row, Col, Input, Select, Space, Typography, Spin, Empty, Button } from 'antd';
+import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
+import MovieCard from '../components/MovieCard';
+import TitlePagination from '../components/TitlePagination';
+import TitleDetailsModal from '../components/TitleDetailsModal';
+import { titleService, Title, SearchTitleDto, SearchResponse } from '../services/api';
 
-const { Title } = Typography;
-
-interface TVShowFilters {
-  genre?: string;
-  year?: number;
-  type?: string;
-  sortBy: string;
-}
+const { Title: TitleComponent } = Typography;
+const { Search } = Input;
 
 const TVShows: React.FC = () => {
-  const [filters, setFilters] = useState<TVShowFilters>({
-    sortBy: 'rating.averageRating',
-  });
+  const [shows, setShows] = useState<Title[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [selectedShow, setSelectedShow] = useState<Title | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [searchParams, setSearchParams] = useState<SearchTitleDto>({
+    titleType: 'tvSeries',
+    take: pageSize,
+    skip: 0,
+  });
 
-  // Placeholder data - replace with actual API calls
-  const shows = [
-    {
-      id: '1',
-      type: 'tvSeries' as const,
-      title: 'Breaking Bad',
-      year: 2008,
-      rating: { averageRating: 9.5, numVotes: 1800000 },
-      genres: ['Crime', 'Drama', 'Thriller'],
-      runtimeMinutes: 45,
-    },
-    // Add more shows
-  ];
+  const fetchShows = async () => {
+    try {
+      setLoading(true);
+      const data = await titleService.searchTitles(searchParams);
+      setShows(data.items);
+      setTotal(data.total);
+    } catch (error) {
+      console.error('Error fetching TV shows:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const genreOptions = [
-    'Action', 'Adventure', 'Animation', 'Comedy', 'Crime',
-    'Documentary', 'Drama', 'Family', 'Fantasy', 'Reality-TV',
-  ].map(genre => ({ label: genre, value: genre }));
+  useEffect(() => {
+    fetchShows();
+  }, [searchParams]);
 
-  const yearOptions = Array.from({ length: 2024 - 1900 + 1 }, (_, i) => ({
-    label: String(2024 - i),
-    value: 2024 - i,
-  }));
-
-  const typeOptions = [
-    { label: 'TV Series', value: 'tvSeries' },
-    { label: 'Mini-Series', value: 'tvMiniSeries' },
-    { label: 'TV Special', value: 'tvSpecial' },
-  ];
-
-  const sortOptions = [
-    { label: 'Rating', value: 'rating.averageRating' },
-    { label: 'Year', value: 'startYear' },
-    { label: 'Title', value: 'primaryTitle' },
-    { label: 'Runtime', value: 'runtimeMinutes' },
-  ];
-
-  const handleFilterChange = (key: keyof TVShowFilters, value: any) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+  const handleSearch = (value: string) => {
     setCurrentPage(1);
+    setSearchParams(prev => ({
+      ...prev,
+      query: value,
+      skip: 0,
+    }));
+  };
+
+  const handleYearChange = (value: [number, number]) => {
+    setCurrentPage(1);
+    setSearchParams(prev => ({
+      ...prev,
+      startYear: value[0],
+      endYear: value[1],
+      skip: 0,
+    }));
+  };
+
+  const handleGenreChange = (value: string) => {
+    setCurrentPage(1);
+    setSearchParams(prev => ({
+      ...prev,
+      genre: value,
+      skip: 0,
+    }));
+  };
+
+  const handleReset = () => {
+    setCurrentPage(1);
+    setSearchParams({
+      titleType: 'tvSeries',
+      take: pageSize,
+      skip: 0,
+    });
+  };
+
+  const handlePageChange = (page: number, size: number) => {
+    setCurrentPage(page);
+    setPageSize(size);
+    setSearchParams(prev => ({
+      ...prev,
+      take: size,
+      skip: (page - 1) * size,
+    }));
+  };
+
+  const handleShowClick = (show: Title) => {
+    setSelectedShow(show);
+    setModalVisible(true);
   };
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
-      <Card>
-        <Row gutter={[16, 16]} align="middle">
-          <Col>
-            <Title level={4} style={{ margin: 0 }}>TV Shows</Title>
+    <div>
+      <TitleComponent level={2}>TV Shows</TitleComponent>
+      
+      <Space direction="vertical" size="large" style={{ width: '100%', marginBottom: 24 }}>
+        <Row gutter={16}>
+          <Col xs={24} sm={12} md={8} lg={6}>
+            <Search
+              placeholder="Search TV shows..."
+              onSearch={handleSearch}
+              style={{ width: '100%' }}
+              allowClear
+            />
           </Col>
-          <Col flex="auto">
-            <Space wrap>
-              <FilterOutlined />
-              <Select
-                allowClear
-                placeholder="Select Genre"
-                style={{ width: 200 }}
-                options={genreOptions}
-                value={filters.genre}
-                onChange={(value) => handleFilterChange('genre', value)}
-              />
-              <Select
-                allowClear
-                placeholder="Select Year"
-                style={{ width: 120 }}
-                options={yearOptions}
-                value={filters.year}
-                onChange={(value) => handleFilterChange('year', value)}
-              />
-              <Select
-                allowClear
-                placeholder="Show Type"
-                style={{ width: 150 }}
-                options={typeOptions}
-                value={filters.type}
-                onChange={(value) => handleFilterChange('type', value)}
-              />
-              <Select
-                placeholder="Sort By"
-                style={{ width: 120 }}
-                options={sortOptions}
-                value={filters.sortBy}
-                onChange={(value) => handleFilterChange('sortBy', value)}
-              />
-            </Space>
+          <Col xs={24} sm={12} md={8} lg={6}>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="Select genre"
+              onChange={handleGenreChange}
+              allowClear
+            >
+              <Select.Option value="Drama">Drama</Select.Option>
+              <Select.Option value="Comedy">Comedy</Select.Option>
+              <Select.Option value="Action">Action</Select.Option>
+              <Select.Option value="Crime">Crime</Select.Option>
+              <Select.Option value="Mystery">Mystery</Select.Option>
+              <Select.Option value="Sci-Fi">Sci-Fi</Select.Option>
+              <Select.Option value="Fantasy">Fantasy</Select.Option>
+            </Select>
+          </Col>
+          <Col xs={24} sm={12} md={8} lg={6}>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="Year range"
+              onChange={handleYearChange}
+              allowClear
+            >
+              <Select.Option value={[2020, 2024]}>2020-2024</Select.Option>
+              <Select.Option value={[2015, 2019]}>2015-2019</Select.Option>
+              <Select.Option value={[2010, 2014]}>2010-2014</Select.Option>
+              <Select.Option value={[2000, 2009]}>2000-2009</Select.Option>
+              <Select.Option value={[1990, 1999]}>1990-1999</Select.Option>
+            </Select>
+          </Col>
+          <Col xs={24} sm={12} md={8} lg={6}>
+            <Button 
+              icon={<ReloadOutlined />} 
+              onClick={handleReset}
+              style={{ width: '100%' }}
+            >
+              Reset Filters
+            </Button>
           </Col>
         </Row>
-      </Card>
+      </Space>
 
-      <Row gutter={[16, 16]}>
-        {shows.map(show => (
-          <Col key={show.id} xs={24} sm={12} md={8} lg={6}>
-            <MediaCard {...show} />
-          </Col>
-        ))}
-      </Row>
-
-      <Row justify="center">
-        <Pagination
-          current={currentPage}
-          onChange={setCurrentPage}
-          total={100} // Replace with actual total
-          pageSize={20}
-          showSizeChanger={false}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          <Spin size="large" />
+        </div>
+      ) : shows.length > 0 ? (
+        <>
+          <Row gutter={[16, 16]}>
+            {shows.map((show) => (
+              <Col key={show.id} xs={24} sm={12} md={8} lg={6}>
+                <MovieCard 
+                  title={show} 
+                  onClick={() => handleShowClick(show)}
+                />
+              </Col>
+            ))}
+          </Row>
+          <TitlePagination
+            current={currentPage}
+            total={total}
+            pageSize={pageSize}
+            onChange={handlePageChange}
+          />
+        </>
+      ) : (
+        <Empty
+          description="No TV shows found"
+          style={{ margin: '50px 0' }}
         />
-      </Row>
-    </Space>
+      )}
+
+      <TitleDetailsModal
+        title={selectedShow}
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+      />
+    </div>
   );
 };
 

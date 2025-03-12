@@ -25,7 +25,7 @@ services:
       - ./backend:/app
       - /app/node_modules
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/cinephilix
+      - MONGODB_URI=mongodb://mongodb:27017/cinephilix-db
       - PORT=3000
     depends_on:
       - mongodb

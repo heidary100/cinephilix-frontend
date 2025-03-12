@@ -1,10 +1,10 @@
 import React from 'react';
-import { Card, Typography, Rate, Tag, Space } from 'antd';
+import { Card, Space, Typography, Tag, Rate, theme } from 'antd';
 import { PlayCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
+const { Text } = Typography;
 const { Meta } = Card;
-const { Text, Paragraph } = Typography;
 
 interface MediaCardProps {
   id: string;
@@ -31,6 +31,7 @@ const MediaCard: React.FC<MediaCardProps> = ({
   imageUrl,
 }) => {
   const navigate = useNavigate();
+  const { token } = theme.useToken();
 
   const handleClick = () => {
     navigate(`/${type}s/${id}`);
@@ -42,7 +43,7 @@ const MediaCard: React.FC<MediaCardProps> = ({
       cover={
         <div style={{ 
           height: 300, 
-          background: '#001529',
+          background: token.colorPrimary,
           backgroundImage: `url(${imageUrl || '/placeholder.jpg'})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
@@ -50,7 +51,7 @@ const MediaCard: React.FC<MediaCardProps> = ({
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          {!imageUrl && <PlayCircleOutlined style={{ fontSize: 48, color: '#fff' }} />}
+          {!imageUrl && <PlayCircleOutlined style={{ fontSize: 48, color: token.colorTextLightSolid }} />}
         </div>
       }
       onClick={handleClick}

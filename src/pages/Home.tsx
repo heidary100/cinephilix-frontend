@@ -1,40 +1,57 @@
-import React from 'react';
-import { Typography, Row, Col, Card, Button, Space, Carousel } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Typography, Row, Col, Card, Button, Space, Carousel, theme, Spin } from 'antd';
 import { RightOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import MediaCard from '../components/MediaCard';
+import { titleService } from '../services/api';
+import type { Title as TitleType } from '../services/api';
 
 const { Title } = Typography;
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
+  const { token } = theme.useToken();
+  const [loading, setLoading] = useState(true);
+  const [trendingMovies, setTrendingMovies] = useState<TitleType[]>([]);
+  const [trendingTVShows, setTrendingTVShows] = useState<TitleType[]>([]);
 
-  // Placeholder data - replace with actual API calls
-  const trendingMovies = [
-    {
-      id: '1',
-      type: 'movie' as const,
-      title: 'Inception',
-      year: 2010,
-      rating: { averageRating: 8.8, numVotes: 2200000 },
-      genres: ['Action', 'Sci-Fi', 'Thriller'],
-      runtimeMinutes: 148,
-    },
-    // Add more movies
-  ];
+  useEffect(() => {
+    const fetchTrending = async () => {
+      try {
+        const [movies, tvShows] = await Promise.all([
+          // Fetch top rated movies
+          titleService.searchTitles({
+            titleType: 'movie',
+            sortBy: 'rating.weighted',
+            sortOrder: 'desc',
+            limit: 8,
+            page: 1,
+            ratingRange: [7, 10], // Only high-rated content
+            isAdult: false
+          }),
+          // Fetch top rated TV shows
+          titleService.searchTitles({
+            titleType: 'tvSeries',
+            sortBy: 'rating.weighted',
+            sortOrder: 'desc',
+            limit: 8,
+            page: 1,
+            ratingRange: [7, 10], // Only high-rated content
+            isAdult: false
+          })
+        ]);
 
-  const trendingTVShows = [
-    {
-      id: '1',
-      type: 'tvSeries' as const,
-      title: 'Breaking Bad',
-      year: 2008,
-      rating: { averageRating: 9.5, numVotes: 1800000 },
-      genres: ['Crime', 'Drama', 'Thriller'],
-      runtimeMinutes: 45,
-    },
-    // Add more TV shows
-  ];
+        setTrendingMovies(movies.items);
+        setTrendingTVShows(tvShows.items);
+      } catch (error) {
+        console.error('Error fetching trending content:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTrending();
+  }, []);
 
   const SectionHeader = ({ title, link }: { title: string; link: string }) => (
     <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
@@ -45,31 +62,66 @@ const Home: React.FC = () => {
     </Space>
   );
 
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Spin size="large" tip="Loading trending content..." />
+      </div>
+    );
+  }
+
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
-      <Carousel autoplay style={{ marginBottom: 24 }}>
-        {trendingMovies.map(movie => (
-          <div key={movie.id}>
-            <div style={{
-              height: 400,
-              background: '#001529',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-            }}>
-              <Title level={2} style={{ color: 'white' }}>{movie.title}</Title>
+    <Space direction="vertical" size="large" style={{ width: '100%', padding: '24px' }}>
+      {trendingMovies.length > 0 && (
+        <Carousel autoplay style={{ marginBottom: 24 }}>
+          {trendingMovies.slice(0, 4).map(movie => (
+            <div key={movie.id} onClick={() => navigate(`/movies/${movie.id}`)} style={{ cursor: 'pointer' }}>
+              <div style={{
+                height: 400,
+                background: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.8)), url(${movie.posterUrl || ''})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'column',
+                padding: '0 48px',
+                textAlign: 'center'
+              }}>
+                <Title level={2} style={{ color: token.colorTextLightSolid, marginBottom: 8 }}>
+                  {movie.primaryTitle}
+                </Title>
+                {movie.startYear && (
+                  <Title level={4} style={{ color: token.colorTextLightSolid, margin: 0, opacity: 0.8 }}>
+                    {movie.startYear}
+                  </Title>
+                )}
+                {movie.rating && (
+                  <Title level={4} style={{ color: token.colorTextLightSolid, margin: '8px 0', opacity: 0.8 }}>
+                    ★ {movie.rating.averageRating.toFixed(1)}
+                  </Title>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-      </Carousel>
+          ))}
+        </Carousel>
+      )}
 
       <div>
         <SectionHeader title="Trending Movies" link="/movies" />
         <Row gutter={[16, 16]}>
           {trendingMovies.map(movie => (
             <Col key={movie.id} xs={24} sm={12} md={8} lg={6}>
-              <MediaCard {...movie} />
+              <MediaCard 
+                id={movie.id}
+                type="movie"
+                title={movie.primaryTitle}
+                year={movie.startYear}
+                rating={movie.rating}
+                genres={movie.genres?.map(g => g.name)}
+                runtimeMinutes={movie.runtimeMinutes}
+                imageUrl={movie.posterUrl}
+              />
             </Col>
           ))}
         </Row>
@@ -80,7 +132,16 @@ const Home: React.FC = () => {
         <Row gutter={[16, 16]}>
           {trendingTVShows.map(show => (
             <Col key={show.id} xs={24} sm={12} md={8} lg={6}>
-              <MediaCard {...show} />
+              <MediaCard 
+                id={show.id}
+                type="tvSeries"
+                title={show.primaryTitle}
+                year={show.startYear}
+                rating={show.rating}
+                genres={show.genres?.map(g => g.name)}
+                runtimeMinutes={show.runtimeMinutes}
+                imageUrl={show.posterUrl}
+              />
             </Col>
           ))}
         </Row>

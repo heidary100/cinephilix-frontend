@@ -1,36 +1,57 @@
-import React, { useState } from 'react';
-import { Typography, Row, Col, Card, Select, Space, Pagination } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Typography, Row, Col, Card, Select, Space, Pagination, Input, Spin } from 'antd';
 import { FilterOutlined } from '@ant-design/icons';
 import PersonCard from '../components/PersonCard';
+import { peopleService, Person } from '../services/api';
+import debounce from 'lodash/debounce';
 
 const { Title } = Typography;
+const { Search } = Input;
 
 interface PeopleFilters {
+  search?: string;
   profession?: string;
   sortBy: string;
+  sortOrder: 'asc' | 'desc';
 }
+
+const PAGE_SIZE = 20;
 
 const People: React.FC = () => {
   const [filters, setFilters] = useState<PeopleFilters>({
     sortBy: 'popularity',
+    sortOrder: 'desc',
   });
   const [currentPage, setCurrentPage] = useState(1);
+  const [people, setPeople] = useState<Person[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  // Placeholder data - replace with actual API calls
-  const people = [
-    {
-      id: '1',
-      name: 'Christopher Nolan',
-      profession: 'Director',
-      birthYear: 1970,
-      knownFor: [
-        { title: 'Inception', year: 2010 },
-        { title: 'The Dark Knight', year: 2008 },
-        { title: 'Interstellar', year: 2014 },
-      ],
-    },
-    // Add more people
-  ];
+  const fetchPeople = async () => {
+    try {
+      setLoading(true);
+      const response = await peopleService.searchPeople({
+        ...filters,
+        page: currentPage,
+        limit: PAGE_SIZE,
+      });
+      setPeople(response.items);
+      setTotal(response.total);
+    } catch (error) {
+      console.error('Error fetching people:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPeople();
+  }, [filters, currentPage]);
+
+  const debouncedSearch = debounce((value: string) => {
+    setFilters(prev => ({ ...prev, search: value }));
+    setCurrentPage(1);
+  }, 500);
 
   const professionOptions = [
     { label: 'Actor', value: 'actor' },
@@ -60,6 +81,12 @@ const People: React.FC = () => {
           </Col>
           <Col flex="auto">
             <Space wrap>
+              <Search
+                placeholder="Search people..."
+                allowClear
+                style={{ width: 250 }}
+                onChange={(e) => debouncedSearch(e.target.value)}
+              />
               <FilterOutlined />
               <Select
                 allowClear
@@ -76,28 +103,52 @@ const People: React.FC = () => {
                 value={filters.sortBy}
                 onChange={(value) => handleFilterChange('sortBy', value)}
               />
+              <Select
+                placeholder="Order"
+                style={{ width: 120 }}
+                options={[
+                  { label: 'Ascending', value: 'asc' },
+                  { label: 'Descending', value: 'desc' },
+                ]}
+                value={filters.sortOrder}
+                onChange={(value) => handleFilterChange('sortOrder', value)}
+              />
             </Space>
           </Col>
         </Row>
       </Card>
 
-      <Row gutter={[16, 16]}>
-        {people.map(person => (
-          <Col key={person.id} xs={24} sm={12} md={8} lg={6}>
-            <PersonCard {...person} />
-          </Col>
-        ))}
-      </Row>
+      <Spin spinning={loading}>
+        <Row gutter={[16, 16]}>
+          {people.map(person => (
+            <Col key={person.id} xs={24} sm={12} md={8} lg={6}>
+              <PersonCard
+                id={person.id}
+                name={person.primaryName}
+                profession={person.primaryProfession?.[0]}
+                birthYear={person.birthYear}
+                knownFor={person.knownForTitles?.map(title => ({
+                  title: title.primaryTitle,
+                  year: title.startYear
+                }))}
+                imageUrl={person.profileUrl}
+              />
+            </Col>
+          ))}
+        </Row>
+      </Spin>
 
-      <Row justify="center">
-        <Pagination
-          current={currentPage}
-          onChange={setCurrentPage}
-          total={100} // Replace with actual total
-          pageSize={20}
-          showSizeChanger={false}
-        />
-      </Row>
+      {total > 0 && (
+        <Row justify="center">
+          <Pagination
+            current={currentPage}
+            onChange={setCurrentPage}
+            total={total}
+            pageSize={PAGE_SIZE}
+            showSizeChanger={false}
+          />
+        </Row>
+      )}
     </Space>
   );
 };

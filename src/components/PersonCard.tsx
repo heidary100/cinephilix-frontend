@@ -1,10 +1,10 @@
 import React from 'react';
-import { Card, Typography, Space, Tag } from 'antd';
+import { Card, Space, Typography, Tag, theme } from 'antd';
 import { UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
-const { Meta } = Card;
 const { Text } = Typography;
+const { Meta } = Card;
 
 interface PersonCardProps {
   id: string;
@@ -29,6 +29,7 @@ const PersonCard: React.FC<PersonCardProps> = ({
   imageUrl,
 }) => {
   const navigate = useNavigate();
+  const { token } = theme.useToken();
 
   const handleClick = () => {
     navigate(`/people/${id}`);
@@ -40,7 +41,7 @@ const PersonCard: React.FC<PersonCardProps> = ({
       cover={
         <div style={{ 
           height: 300, 
-          background: '#001529',
+          background: token.colorPrimary,
           backgroundImage: `url(${imageUrl || '/placeholder-person.jpg'})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
@@ -48,7 +49,7 @@ const PersonCard: React.FC<PersonCardProps> = ({
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          {!imageUrl && <UserOutlined style={{ fontSize: 48, color: '#fff' }} />}
+          {!imageUrl && <UserOutlined style={{ fontSize: 48, color: token.colorTextLightSolid }} />}
         </div>
       }
       onClick={handleClick}
